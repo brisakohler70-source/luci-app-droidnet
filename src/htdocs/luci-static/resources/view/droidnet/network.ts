@@ -9,95 +9,6 @@
 "require droidnet";
 "require tools/ui-renderer as UIRenderer";
 
-// Data-driven architecture
-interface NetworkConfig {
-  sections: NetworkSection[];
-}
-
-interface NetworkSection {
-  id: string;
-  title: string;
-  commands: NetworkCommand[];
-  renderer: (data: Record<string, any>) => Record<string, any>;
-}
-
-interface NetworkCommand {
-  id: string;
-  shell: string;
-  parser: (stdout: string) => any;
-}
-
-const NETWORK_CONFIG: NetworkConfig = {
-  sections: [
-    {
-      id: "network_capabilities",
-      title: "Network Configuration",
-      commands: [
-        {
-          id: "connectivity",
-          shell: "dumpsys connectivity",
-          parser: (stdout) => ({ stdout }),
-        },
-      ],
-      renderer: (data) => {
-        const caps = data["connectivity"]?.stdout?.match(
-          /Capabilities:\s*([^\s]+)/,
-        );
-        const dns = data["connectivity"]?.stdout?.match(
-          /DnsAddresses:\s*\[\s*([^\]]+)\s*\]/,
-        );
-
-        return {
-          "Network capabilities": caps?.[1]?.split("&") || [],
-          "DNS servers":
-            dns?.[1]
-              ?.split(",")
-              .map((s: string) => s.trim().replace(/^\//, "")) || [],
-        };
-      },
-    },
-  ],
-};
-
-// Generic engine
-async function loadDataDriven(): Promise<Record<string, any>> {
-  const sectionData: Record<string, any> = {};
-
-  for (const section of NETWORK_CONFIG.sections) {
-    const commandResults: Record<string, any> = {};
-
-    for (const command of section.commands) {
-      commandResults[command.id] = await droidnet.exec(
-        command.shell.split(" "),
-        command.parser,
-      );
-    }
-
-    sectionData[section.id] = commandResults;
-  }
-
-  return sectionData;
-}
-
-function renderDataDriven(data: Record<string, any>): HTMLElement[] {
-  const results = NETWORK_CONFIG.sections
-    .map((section) => {
-      const sectionData = section.renderer(data[section.id] || {});
-      const rows = Object.entries(sectionData).map(([label, value]) => ({
-        label,
-        value: Array.isArray(value) ? value.join(", ") : String(value),
-      }));
-
-      return rows.length > 0
-        ? [UIRenderer.renderTitle(section.title), UIRenderer.renderTable(rows)]
-        : null;
-    })
-    .filter(Boolean);
-
-  return results.flat() as HTMLElement[];
-}
-
-// Original implementation below...
 interface NetworkData {
   [key: string]: any;
 }
@@ -153,7 +64,7 @@ function parseGetpropOutput(
 
   // Set defaults for missing properties
   Object.values(properties).forEach((key) => {
-    if (!networkInfo["hasOwnProperty"](key)) {
+    if (!networkInfo.hasOwnProperty(key)) {
       networkInfo[key] = ["", ""];
     }
   });
@@ -814,14 +725,19 @@ return view.extend({
   handleSave: null,
   handleReset: null,
 
-  load: droidnet.load(loadDataDriven),
+  load: droidnet.load(loadNetworkData),
 
-  render: async function (data: Record<string, any>): Promise<HTMLElement> {
+  render: async function (data: NetworkData): Promise<HTMLElement> {
     const deviceCheck = await UIRenderer.checkDeviceAndRender(data);
     if (deviceCheck) return deviceCheck;
 
-    // Use only data-driven sections
-    const sections = [renderDataDriven(data)];
+    const sections = [
+      renderMobileNetwork(data),
+      await renderWirelessInfo(data),
+      renderCellularInfo(data),
+      renderNetworkCapabilities(data),
+      renderApnInfo(data),
+    ];
 
     return UIRenderer.renderPage(sections);
   },
