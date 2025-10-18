@@ -157,7 +157,7 @@ function renderMonitoringSection(m: LuCI.form.Map, data: SettingData): void {
     } else {
       await droidnet.serviceStop();
     }
-    return uci.set("droidnet", section_id, "enable", value);
+    uci.set("droidnet", section_id, "enable", value);
   };
 
   createListOption(
@@ -290,7 +290,7 @@ function renderHttpingSection(m: LuCI.form.Map, data: SettingData): void {
     } else {
       await droidnet.serviceStop();
     }
-    return uci.set("droidnet", section_id, "enable", value);
+    uci.set("droidnet", section_id, "enable", value);
   };
 
   const httpOptions = [
@@ -362,15 +362,15 @@ function renderHttpingSection(m: LuCI.form.Map, data: SettingData): void {
     },
   ];
 
-  httpOptions.forEach((option) =>
+  httpOptions.forEach((option) => {
     createValueOption(
       s,
       option.id,
       option.title,
       option.desc,
       option.placeholder,
-    ),
-  );
+    );
+  });
 
   const forcePingOption = s.option(
     form.Flag,
@@ -383,7 +383,7 @@ function renderHttpingSection(m: LuCI.form.Map, data: SettingData): void {
   forcePingOption.rmempty = false;
 }
 
-// @ts-ignore
+// @ts-expect-error - view.extend typing is not available
 return view.extend({
   load: droidnet.load(loadSettingData),
 

@@ -98,23 +98,21 @@ function renderDataDriven(data: Record<string, any>): HTMLElement[] {
 }
 
 // Original implementation below...
-interface NetworkData {
-  [key: string]: any;
-}
+type NetworkData = Record<string, any>;
 
 interface ToggleAction {
   onEnable: () => Promise<void>;
   onDisable: () => Promise<void>;
 }
 
-interface TableRow {
+interface _TableRow {
   label: string;
   value: string | boolean;
   action?: ToggleAction;
 }
 
 // Data loading functions
-async function loadNetworkData(): Promise<NetworkData> {
+async function _loadNetworkData(): Promise<NetworkData> {
   const [networkInfo, deviceInfo, apnInfo] = await Promise.all([
     loadNetworkProperties(),
     loadDeviceInfo(),
@@ -153,7 +151,7 @@ function parseGetpropOutput(
 
   // Set defaults for missing properties
   Object.values(properties).forEach((key) => {
-    if (!networkInfo["hasOwnProperty"](key)) {
+    if (!networkInfo.hasOwnProperty(key)) {
       networkInfo[key] = ["", ""];
     }
   });
@@ -261,19 +259,19 @@ async function loadDeviceInfo(): Promise<Record<string, any>> {
         const connectivityData: Record<string, any> = {};
 
         // Extract interface name
-        const interfaceMatch = stdout.match(/InterfaceName:\s*(\w+)/);
+        const interfaceMatch = /InterfaceName:\s*(\w+)/.exec(stdout);
         if (interfaceMatch?.[1]) {
           connectivityData["interface"] = interfaceMatch[1];
         }
 
         // Extract link addresses
-        const linkMatch = stdout.match(/LinkAddresses:\s*\[\s*([^\]]+)\s*\]/);
+        const linkMatch = /LinkAddresses:\s*\[\s*([^\]]+)\s*\]/.exec(stdout);
         if (linkMatch?.[1]) {
           connectivityData["link_addresses"] = linkMatch[1].trim();
         }
 
         // Extract DNS addresses
-        const dnsMatch = stdout.match(/DnsAddresses:\s*\[\s*([^\]]+)\s*\]/);
+        const dnsMatch = /DnsAddresses:\s*\[\s*([^\]]+)\s*\]/.exec(stdout);
         if (dnsMatch?.[1]) {
           const dnsAddresses = dnsMatch[1]
             .split(",")
@@ -283,19 +281,19 @@ async function loadDeviceInfo(): Promise<Record<string, any>> {
         }
 
         // Extract MTU
-        const mtuMatch = stdout.match(/MTU:\s*(\d+)/);
+        const mtuMatch = /MTU:\s*(\d+)/.exec(stdout);
         if (mtuMatch?.[1]) {
           connectivityData["mtu"] = mtuMatch[1];
         }
 
         // Extract TCP buffer sizes
-        const tcpMatch = stdout.match(/TcpBufferSizes:\s*([^\s]+)/);
+        const tcpMatch = /TcpBufferSizes:\s*([^\s]+)/.exec(stdout);
         if (tcpMatch?.[1]) {
           connectivityData["tcp_buffer_sizes"] = tcpMatch[1];
         }
 
         // Extract routes
-        const routesMatch = stdout.match(/Routes:\s*\[\s*([^\]]+)\s*\]/);
+        const routesMatch = /Routes:\s*\[\s*([^\]]+)\s*\]/.exec(stdout);
         if (routesMatch?.[1]) {
           const routes = routesMatch[1]
             .split(",")
@@ -305,14 +303,14 @@ async function loadDeviceInfo(): Promise<Record<string, any>> {
         }
 
         // Extract network capabilities
-        const capMatch = stdout.match(/Capabilities:\s*([^\s]+)/);
+        const capMatch = /Capabilities:\s*([^\s]+)/.exec(stdout);
         if (capMatch?.[1]) {
           connectivityData["capabilities"] = capMatch[1].split("&");
         }
 
         // Extract bandwidth info
-        const upBandwidthMatch = stdout.match(/LinkUpBandwidth>=(\d+)Kbps/);
-        const downBandwidthMatch = stdout.match(/LinkDnBandwidth>=(\d+)Kbps/);
+        const upBandwidthMatch = /LinkUpBandwidth>=(\d+)Kbps/.exec(stdout);
+        const downBandwidthMatch = /LinkDnBandwidth>=(\d+)Kbps/.exec(stdout);
         if (upBandwidthMatch?.[1]) {
           const kbps = parseInt(upBandwidthMatch[1]);
           const mbps = kbps / 1000;
@@ -347,41 +345,44 @@ async function loadDeviceInfo(): Promise<Record<string, any>> {
         telephonyData["data"] = stdout.includes("mDataConnectionState=2");
 
         // Parse mServiceState
-        const serviceStateMatch = stdout.match(/mServiceState=\{([^}]+)\}/);
+        const serviceStateMatch = /mServiceState=\{([^}]+)\}/.exec(stdout);
         if (serviceStateMatch?.[1]) {
           const serviceState = serviceStateMatch[1];
 
           // Extract cell identity info
-          const cellIdMatch = serviceState.match(/mCi=(\d+)/);
-          const tacMatch = serviceState.match(/mTac=(\d+)/);
-          const earfcnMatch = serviceState.match(/mEarfcn=(\d+)/);
-          const pciMatch = serviceState.match(/mPci=(\d+)/);
-          const channelMatch = serviceState.match(/mChannelNumber=(\d+)/);
+          const cellIdMatch = /mCi=(\d+)/.exec(serviceState);
+          const tacMatch = /mTac=(\d+)/.exec(serviceState);
+          const earfcnMatch = /mEarfcn=(\d+)/.exec(serviceState);
+          const pciMatch = /mPci=(\d+)/.exec(serviceState);
+          const channelMatch = /mChannelNumber=(\d+)/.exec(serviceState);
 
           if (cellIdMatch?.[1]) telephonyData["cell_id"] = cellIdMatch[1];
           if (tacMatch?.[1]) telephonyData["tracking_area"] = tacMatch[1];
           if (earfcnMatch?.[1]) telephonyData["earfcn"] = earfcnMatch[1];
           if (pciMatch?.[1]) telephonyData["physical_cell_id"] = pciMatch[1];
-          if (channelMatch?.[1])
+          if (channelMatch?.[1]) {
             telephonyData["channel_number"] = channelMatch[1];
+          }
 
           // Extract registration states
-          const voiceRegMatch = serviceState.match(
-            /mVoiceRegState=(\d+)\(([^)]+)\)/,
+          const voiceRegMatch = /mVoiceRegState=(\d+)\(([^)]+)\)/.exec(
+            serviceState,
           );
-          const dataRegMatch = serviceState.match(
-            /mDataRegState=(\d+)\(([^)]+)\)/,
+          const dataRegMatch = /mDataRegState=(\d+)\(([^)]+)\)/.exec(
+            serviceState,
           );
 
-          if (voiceRegMatch)
+          if (voiceRegMatch) {
             telephonyData["voice_reg_state"] = voiceRegMatch[2];
+          }
           if (dataRegMatch) telephonyData["data_reg_state"] = dataRegMatch[2];
         }
 
         // Parse signal strength - handle different formats
-        const signalMatch = stdout.match(
-          /mLte=CellSignalStrengthLte:\s*rssi=(-?\d+)\s*rsrp=(-?\d+)\s*rsrq=(-?\d+)\s*rssnr=(\d+)(?:\s*cqiTableIndex=\d+)?\s*cqi=(-?\d+)\s*ta=(-?\d+)\s*level=(\d+)/,
-        );
+        const signalMatch =
+          /mLte=CellSignalStrengthLte:\s*rssi=(-?\d+)\s*rsrp=(-?\d+)\s*rsrq=(-?\d+)\s*rssnr=(\d+)(?:\s*cqiTableIndex=\d+)?\s*cqi=(-?\d+)\s*ta=(-?\d+)\s*level=(\d+)/.exec(
+            stdout,
+          );
         if (signalMatch) {
           telephonyData["lte_rssi"] =
             signalMatch[1] !== "2147483647" ? signalMatch[1] + " dBm" : "-";
@@ -399,9 +400,10 @@ async function loadDeviceInfo(): Promise<Record<string, any>> {
         }
 
         // Parse GSM signal - handle invalid values
-        const gsmSignalMatch = stdout.match(
-          /CellSignalStrengthGsm:\s*rssi=(-?\d+)\s*ber=(\d+)\s*mTa=(-?\d+)\s*mLevel=(\d+)/,
-        );
+        const gsmSignalMatch =
+          /CellSignalStrengthGsm:\s*rssi=(-?\d+)\s*ber=(\d+)\s*mTa=(-?\d+)\s*mLevel=(\d+)/.exec(
+            stdout,
+          );
         if (gsmSignalMatch) {
           telephonyData["gsm_rssi"] =
             gsmSignalMatch[1] !== "2147483647"
@@ -413,9 +415,8 @@ async function loadDeviceInfo(): Promise<Record<string, any>> {
         }
 
         // Parse WCDMA signal - handle invalid values
-        const wcdmaSignalMatch = stdout.match(
-          /CellSignalStrengthWcdma:\s*ss=(-?\d+)\s*ber=(\d+)/,
-        );
+        const wcdmaSignalMatch =
+          /CellSignalStrengthWcdma:\s*ss=(-?\d+)\s*ber=(\d+)/.exec(stdout);
         if (wcdmaSignalMatch) {
           telephonyData["wcdma_rssi"] =
             wcdmaSignalMatch[1] !== "2147483647"
@@ -425,29 +426,31 @@ async function loadDeviceInfo(): Promise<Record<string, any>> {
         }
 
         // Parse 5G/NR status
-        const nrStateMatch = stdout.match(/nrState=(\w+)/);
-        const fiveGStatusMatch = stdout.match(/5gStatus=(\d+)/);
-        const endcStatusMatch = stdout.match(/EndcStatus=(\d+)/);
-        const carrierAggMatch = stdout.match(/isUsingCarrierAggregation=(\w+)/);
+        const nrStateMatch = /nrState=(\w+)/.exec(stdout);
+        const fiveGStatusMatch = /5gStatus=(\d+)/.exec(stdout);
+        const endcStatusMatch = /EndcStatus=(\d+)/.exec(stdout);
+        const carrierAggMatch = /isUsingCarrierAggregation=(\w+)/.exec(stdout);
 
         if (nrStateMatch) telephonyData["nr_state"] = nrStateMatch[1];
-        if (fiveGStatusMatch)
+        if (fiveGStatusMatch) {
           telephonyData["five_g_status"] = fiveGStatusMatch[1];
+        }
         if (endcStatusMatch) telephonyData["endc_status"] = endcStatusMatch[1];
-        if (carrierAggMatch)
+        if (carrierAggMatch) {
           telephonyData["carrier_aggregation"] = carrierAggMatch[1] === "true";
+        }
 
         // Parse VoLTE and emergency support
-        const vopsMatch = stdout.match(/mVopsSupport\s*=\s*(\d+)/);
-        const emcMatch = stdout.match(/mEmcBearerSupport\s*=\s*(\d+)/);
-        const imsVoiceMatch = stdout.match(/ImsVoiceAvail=(\d+)/);
+        const vopsMatch = /mVopsSupport\s*=\s*(\d+)/.exec(stdout);
+        const emcMatch = /mEmcBearerSupport\s*=\s*(\d+)/.exec(stdout);
+        const imsVoiceMatch = /ImsVoiceAvail=(\d+)/.exec(stdout);
 
         if (vopsMatch) telephonyData["volte_support"] = vopsMatch[1];
         if (emcMatch) telephonyData["emergency_support"] = emcMatch[1];
         if (imsVoiceMatch) telephonyData["ims_voice"] = imsVoiceMatch[1];
 
         // Parse available services
-        const servicesMatch = stdout.match(/availableServices=\[([^\]]+)\]/);
+        const servicesMatch = /availableServices=\[([^\]]+)\]/.exec(stdout);
         if (servicesMatch?.[1]) {
           telephonyData["available_services"] = servicesMatch[1]
             .split(",")
@@ -536,7 +539,7 @@ function parseWirelessInfo(stdout: string) {
   return wifiInfo;
 }
 
-function renderMobileNetwork(data: NetworkData): HTMLElement[] {
+function _renderMobileNetwork(data: NetworkData): HTMLElement[] {
   const wifiAction = UIRenderer.createToggleAction(
     "wireless",
     ["svc", "wifi", "enable"],
@@ -611,7 +614,7 @@ function renderMobileNetwork(data: NetworkData): HTMLElement[] {
   ];
 }
 
-async function renderWirelessInfo(
+async function _renderWirelessInfo(
   data: NetworkData,
 ): Promise<HTMLElement[] | null> {
   if (!data["wifi"]) return null;
@@ -619,7 +622,7 @@ async function renderWirelessInfo(
   const wirelessInfo = await droidnet.exec([
     'dumpsys wifi | grep "mWifiInfo SSID"',
   ]);
-  if (wirelessInfo.stderr || wirelessInfo.code != 0) return null;
+  if (wirelessInfo.stderr || wirelessInfo.code !== 0) return null;
   if (wirelessInfo.stdout) {
     const wifiInfo = parseWirelessInfo(wirelessInfo.stdout);
     return [
@@ -640,7 +643,7 @@ async function renderWirelessInfo(
   return null;
 }
 
-function renderCellularInfo(data: NetworkData): HTMLElement[] | null {
+function _renderCellularInfo(data: NetworkData): HTMLElement[] | null {
   const createSimTab = (simIndex: number, simName: string) => {
     if (!data["operator"]?.[simIndex]) return null;
 
@@ -713,7 +716,7 @@ function renderCellularInfo(data: NetworkData): HTMLElement[] | null {
   return result;
 }
 
-function renderNetworkCapabilities(data: NetworkData): HTMLElement[] | null {
+function _renderNetworkCapabilities(data: NetworkData): HTMLElement[] | null {
   console.debug("[network] renderNetworkCapabilities data:", data);
 
   const sections = [];
@@ -775,7 +778,7 @@ function renderNetworkCapabilities(data: NetworkData): HTMLElement[] | null {
   return [UIRenderer.renderTitle("Network Configuration"), ...sections];
 }
 
-function renderApnInfo(data: NetworkData): HTMLElement[] | null {
+function _renderApnInfo(data: NetworkData): HTMLElement[] | null {
   if (!data["apn"] || Object.keys(data["apn"]).length === 0) return null;
 
   const apn = data["apn"];
@@ -808,7 +811,7 @@ function renderApnInfo(data: NetworkData): HTMLElement[] | null {
   ];
 }
 
-// @ts-ignore
+// @ts-expect-error - view.extend typing is not available
 return view.extend({
   handleSaveApply: null,
   handleSave: null,
