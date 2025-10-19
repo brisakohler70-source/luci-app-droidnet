@@ -180,15 +180,15 @@ function renderLogViewer(): HTMLElement {
 }
 
 function startLogPolling(): void {
-  poll.add(function () {
+  poll.add(() => {
     const lines =
       (document.getElementById("log-lines") as HTMLSelectElement)?.value ||
       "20";
     return fs
       .exec("/usr/bin/tail", ["-n", lines, "/var/log/droidnet.log"])
-      .then(function (res) {
-        const out = res && res.stdout ? res.stdout.trim() : "";
-        const err = res && res.stderr ? res.stderr.trim() : "";
+      .then((res) => {
+        const out = res?.stdout ? res.stdout.trim() : "";
+        const err = res?.stderr ? res.stderr.trim() : "";
 
         if (err || !out) {
           UIRenderer.addNotification(
@@ -212,7 +212,7 @@ function startLogPolling(): void {
         if (filter !== "all") {
           data = data
             .split("\n")
-            .filter(function (log) {
+            .filter((log) => {
               return log.includes(filter);
             })
             .join("\n");
@@ -224,7 +224,7 @@ function startLogPolling(): void {
 
         syslog.textContent = data;
       })
-      .catch(function (error) {
+      .catch((error: unknown) => {
         UIRenderer.addNotification(
           "Error: Read log file!",
           "An error occurred while reading the file: " + String(error),
@@ -234,7 +234,7 @@ function startLogPolling(): void {
   }, 2);
 }
 
-// @ts-ignore
+// @ts-expect-error - view.extend typing is not available
 return view.extend({
   handleSaveApply: null,
   handleSave: null,

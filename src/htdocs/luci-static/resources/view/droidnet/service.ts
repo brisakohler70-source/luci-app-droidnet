@@ -34,9 +34,7 @@ interface UADPackageInfo {
   removal: string;
 }
 
-interface UADData {
-  [packageName: string]: UADPackageInfo;
-}
+type UADData = Record<string, UADPackageInfo>;
 
 interface AppPackage {
   name: string;
@@ -91,7 +89,7 @@ async function loadUADData(): Promise<UADData | null> {
       "json",
     )) as UADData;
     return uadData;
-  } catch (error) {
+  } catch {
     // If cache doesn't exist, create single download promise
     uadDownloadPromise = (async () => {
       console.log("UAD cache not found, downloading...");
@@ -167,8 +165,7 @@ function saveServiceSettings(): void {
       (document.getElementById("package-type-filter") as HTMLSelectElement)
         ?.value || "all",
     search:
-      (document.querySelector(".filter-input") as HTMLInputElement)?.value ||
-      "",
+      document.querySelector<HTMLInputElement>(".filter-input")?.value || "",
     perPage: "10", // Keep for future use
   };
   localStorage.setItem("droidnet-service-settings", JSON.stringify(settings));
@@ -186,7 +183,7 @@ function loadServiceSettings(): any {
 }
 
 async function getPackagesByFilter(filter: string): Promise<AppPackage[]> {
-  let command = [
+  const command = [
     "pm",
     "list",
     "packages",
@@ -219,8 +216,8 @@ async function getPackagesByFilter(filter: string): Promise<AppPackage[]> {
   lines.forEach((line) => {
     const trimmed = line.trim();
     if (trimmed.startsWith("package:")) {
-      const match = trimmed.match(
-        /^package:(.+?)\s+versionCode:(\d+)\s+uid:(\d+)$/,
+      const match = /^package:(.+?)\s+versionCode:(\d+)\s+uid:(\d+)$/.exec(
+        trimmed,
       );
       if (match) {
         packages.push({
@@ -251,7 +248,7 @@ function getFilteredPackages(packages: AppPackage[]): AppPackage[] {
   return filtered;
 }
 
-function applyAppFilters(packages: AppPackage[], newDisplay: number): void {
+function _applyAppFilters(packages: AppPackage[], newDisplay: number): void {
   currentPage = 1;
   const filter =
     (document.getElementById("app-filter") as HTMLSelectElement)?.value ||
@@ -262,7 +259,7 @@ function applyAppFilters(packages: AppPackage[], newDisplay: number): void {
     updateAppTable(filtered, newDisplay);
   } else {
     // Load packages with specific filter
-    getPackagesByFilter(filter).then((filteredPackages) => {
+    void getPackagesByFilter(filter).then((filteredPackages) => {
       const searchFiltered = getFilteredPackages(filteredPackages);
       updateAppTable(searchFiltered, newDisplay);
     });
@@ -270,9 +267,9 @@ function applyAppFilters(packages: AppPackage[], newDisplay: number): void {
 }
 
 function updateAppTable(packages: AppPackage[], display: number): void {
-  const container = document.querySelector(".table-container") as HTMLElement;
-  const prev = document.querySelector(".prev") as HTMLButtonElement;
-  const next = document.querySelector(".next") as HTMLButtonElement;
+  const container = document.querySelector(".table-container")!;
+  const prev = document.querySelector(".prev")!;
+  const next = document.querySelector(".next")!;
 
   if (container) {
     container.innerHTML = "";
@@ -284,17 +281,17 @@ function updateAppTable(packages: AppPackage[], display: number): void {
   const pages = Math.ceil(total / display);
 
   if (pages <= 1) {
-    if (prev) prev.disabled = true;
-    if (next) next.disabled = true;
+    if (prev) (prev as HTMLButtonElement).disabled = true;
+    if (next) (next as HTMLButtonElement).disabled = true;
   } else if (currentPage <= 1) {
-    if (prev) prev.disabled = true;
-    if (next) next.disabled = false;
+    if (prev) (prev as HTMLButtonElement).disabled = true;
+    if (next) (next as HTMLButtonElement).disabled = false;
   } else if (currentPage >= pages) {
-    if (prev) prev.disabled = false;
-    if (next) next.disabled = true;
+    if (prev) (prev as HTMLButtonElement).disabled = false;
+    if (next) (next as HTMLButtonElement).disabled = true;
   } else {
-    if (prev) prev.disabled = false;
-    if (next) next.disabled = false;
+    if (prev) (prev as HTMLButtonElement).disabled = false;
+    if (next) (next as HTMLButtonElement).disabled = false;
   }
 
   const start = (currentPage - 1) * display + 1;
@@ -420,7 +417,7 @@ function renderAppTable(packages: AppPackage[], display: number): HTMLElement {
               style: "font-size: 11px; padding: 2px 6px;",
               click: async function () {
                 const warning =
-                  uadInfo && uadInfo.removal === "Unsafe"
+                  uadInfo?.removal === "Unsafe"
                     ? _(
                         "\n⚠️ WARNING: This package is marked as UNSAFE to remove and may cause system instability!",
                       )
@@ -525,8 +522,8 @@ async function loadApplicationInfo(): Promise<Record<string, any>> {
   lines.forEach((line) => {
     const trimmed = line.trim();
     if (trimmed.startsWith("package:")) {
-      const match = trimmed.match(
-        /^package:(.+?)\s+versionCode:(\d+)\s+uid:(\d+)$/,
+      const match = /^package:(.+?)\s+versionCode:(\d+)\s+uid:(\d+)$/.exec(
+        trimmed,
       );
       if (match) {
         packages.push({
@@ -546,7 +543,7 @@ async function executePowerAction(
   action: string,
   command: string[],
   message: string,
-  delay: number = 10000,
+  delay = 10000,
 ): Promise<void> {
   UIRenderer.modalLoading(`${action}...`);
   await droidnet.exec(command);
@@ -591,7 +588,9 @@ async function removeApplication(packageName: string): Promise<void> {
     droidnet.log(
       _("Removing %s application successfully.").format(packageName),
     );
-    setTimeout(() => window.location.reload(), 2000);
+    setTimeout(() => {
+      window.location.reload();
+    }, 2000);
   } else {
     const error = result.stderr || result.stdout || "Unknown error";
     UIRenderer.modalError(
@@ -830,7 +829,7 @@ function renderApplicationTable(data: ServiceData): HTMLElement {
                       !result.stdout?.includes("Security exception"),
                   },
                 );
-                toggleAction.onEnable(); // Calls disable
+                void toggleAction.onEnable(); // Calls disable
               },
             },
             _("Disable"),
@@ -860,7 +859,7 @@ function renderApplicationTable(data: ServiceData): HTMLElement {
                       !result.stdout?.includes("Security exception"),
                   },
                 );
-                toggleAction.onEnable(); // Calls suspend
+                void toggleAction.onEnable(); // Calls suspend
               },
             },
             _("Suspend"),
@@ -872,7 +871,7 @@ function renderApplicationTable(data: ServiceData): HTMLElement {
               style: "font-size: 11px; padding: 2px 6px;",
               click: () => {
                 const warning =
-                  uadInfo && uadInfo.removal === "Unsafe"
+                  uadInfo?.removal === "Unsafe"
                     ? _(
                         "\n⚠️ WARNING: This package is marked as UNSAFE to remove and may cause system instability!",
                       )
@@ -922,12 +921,12 @@ function updatePagination(data: ServiceData): void {
   const total = packages.length;
   const pages = Math.ceil(total / display);
 
-  const prevBtn = document.querySelector(".prev") as HTMLButtonElement;
-  const nextBtn = document.querySelector(".next") as HTMLButtonElement;
+  const prevBtn = document.querySelector(".prev")!;
+  const nextBtn = document.querySelector(".next")!;
   const pageInfo = document.getElementById("page-info");
 
-  if (prevBtn) prevBtn.disabled = currentPage <= 1;
-  if (nextBtn) nextBtn.disabled = currentPage >= pages;
+  if (prevBtn) (prevBtn as HTMLButtonElement).disabled = currentPage <= 1;
+  if (nextBtn) (nextBtn as HTMLButtonElement).disabled = currentPage >= pages;
 
   const start = (currentPage - 1) * display + 1;
   const end = Math.min(start + display - 1, total);
@@ -1044,13 +1043,11 @@ function renderApplicationManager(data: ServiceData): HTMLElement[] {
                   currentFilter = "";
                   currentPage = 1;
                   updateApplicationTable(data);
-                  const input = document.querySelector(
-                    ".filter-input",
-                  ) as HTMLInputElement;
+                  const input = document.querySelector(".filter-input")!;
                   const select = document.getElementById(
                     "package-type-filter",
                   ) as HTMLSelectElement;
-                  if (input) input.value = "";
+                  if (input) (input as HTMLInputElement).value = "";
                   if (select) select.value = "all";
                 },
               },
@@ -1135,7 +1132,9 @@ function renderApplicationManager(data: ServiceData): HTMLElement[] {
                     "Update completed",
                     "Application list has been successfully updated.",
                   );
-                  setTimeout(() => window.location.reload(), 2000);
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 2000);
                 }, 2000);
               },
             },
@@ -1291,7 +1290,7 @@ function renderApplicationManager(data: ServiceData): HTMLElement[] {
   ];
 }
 
-// @ts-ignore
+// @ts-expect-error - view.extend typing is not available
 return view.extend({
   handleSaveApply: null,
   handleSave: null,
@@ -1312,9 +1311,7 @@ return view.extend({
       const packageTypeFilter = document.getElementById(
         "package-type-filter",
       ) as HTMLSelectElement;
-      const searchInput = document.querySelector(
-        ".filter-input",
-      ) as HTMLInputElement;
+      const searchInput = document.querySelector(".filter-input")!;
 
       if (packageTypeFilter) packageTypeFilter.value = savedSettings.filter;
       if (searchInput) searchInput.value = savedSettings.search;

@@ -230,7 +230,7 @@ function renderBatteryInfo(data: DeviceData): HTMLElement[] {
   ];
 }
 
-// @ts-ignore
+// @ts-expect-error - view.extend typing is not available
 return view.extend({
   handleSaveApply: null,
   handleSave: null,

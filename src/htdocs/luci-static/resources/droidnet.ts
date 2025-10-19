@@ -15,19 +15,19 @@ interface ToggleAction {
   onDisable: () => Promise<void>;
 }
 
-interface TableRow {
+interface _TableRow {
   label: string;
   value: string | boolean;
   action?: ToggleAction;
 }
 
-interface TabConfig {
+interface _TabConfig {
   tabId: string;
   tabTitle: string;
   tabContent: HTMLElement;
 }
 
-interface TableConfig {
+interface _TableConfig {
   col?: number;
   colSizeMap?: Record<number, number[]>;
 }
@@ -54,14 +54,14 @@ class DroidNet {
   });
 
   private __toArray(cmd: string | string[]): string[] {
-    return Array.isArray(cmd) ? cmd : [String(cmd)];
+    return Array.isArray(cmd) ? cmd : [cmd];
   }
 
-  private async __exec(
+  private async __exec<T = fs.FileExecResult>(
     command: string | string[],
-    callback?: (stdout: string) => any,
+    callback?: (stdout: string) => T | Promise<T>,
     { asSu = false }: { asSu?: boolean } = {},
-  ): Promise<fs.FileExecResult> {
+  ): Promise<T | fs.FileExecResult> {
     try {
       const id = await this.getDeviceId();
       if (!id) {
@@ -90,7 +90,7 @@ class DroidNet {
       }
 
       if (!callback) return { ...result };
-      const cbOut = await callback(result.stdout || "");
+      const cbOut = await callback(result.stdout ?? "");
       return cbOut;
     } catch (error) {
       return { code: 1, stderr: String(error), stdout: "" };
@@ -114,22 +114,22 @@ class DroidNet {
       }
       const deviceCheck = await fs.exec("adb", ["devices"]);
       this.__deviceConnected =
-        deviceCheck.code === 0 && (deviceCheck.stdout?.includes(id) || false);
+        deviceCheck.code === 0 && (deviceCheck.stdout?.includes(id) ?? false);
     }
     return this.__deviceConnected;
   }
 
-  async exec(
+  async exec<T = fs.FileExecResult>(
     command: string | string[],
-    callback?: (stdout: string) => any,
-  ): Promise<fs.FileExecResult> {
+    callback?: (stdout: string) => T | Promise<T>,
+  ): Promise<T | fs.FileExecResult> {
     return this.__exec(command, callback, { asSu: false });
   }
 
-  async suexec(
+  async suexec<T = fs.FileExecResult>(
     command: string | string[],
-    callback?: (stdout: string) => any,
-  ): Promise<fs.FileExecResult> {
+    callback?: (stdout: string) => T | Promise<T>,
+  ): Promise<T | fs.FileExecResult> {
     return this.__exec(command, callback, { asSu: true });
   }
 
@@ -142,7 +142,7 @@ class DroidNet {
         "-l",
       ]);
       const devices: Record<string, string> = {};
-      const stdout = (result.stdout || "").trim();
+      const stdout = (result.stdout ?? "").trim();
       const stderr = result.stderr;
 
       if (
@@ -167,11 +167,15 @@ class DroidNet {
           const modelPart = parts.find((part: string) =>
             part.startsWith("model:"),
           );
-          const model = line.includes("unauthorized")
-            ? "unauthorized"
-            : modelPart
-              ? modelPart.substring(6)
-              : device;
+          let model: string;
+          if (line.includes("unauthorized")) {
+            model = "unauthorized";
+          } else if (modelPart) {
+            const MODEL_PREFIX_LENGTH = 6;
+            model = modelPart.substring(MODEL_PREFIX_LENGTH);
+          } else {
+            model = device;
+          }
           devices[device] = model;
         });
       }
@@ -181,9 +185,11 @@ class DroidNet {
     }
   }
 
-  load(loadFunction: () => Promise<any>): () => Promise<any> {
+  load(
+    loadFunction: () => Promise<Record<string, unknown>>,
+  ): () => Promise<Record<string, unknown>> {
     const self = this;
-    return async function (this: any) {
+    return async function () {
       // Device validation guard
       if (!(await self.getDeviceId())) {
         return { deviceNotSet: true };
@@ -194,7 +200,7 @@ class DroidNet {
       }
 
       // Execute the actual load function
-      return await loadFunction.call(this);
+      return await loadFunction();
     };
   }
 
@@ -206,9 +212,9 @@ class DroidNet {
     const logFile = "/var/log/droidnet.log";
 
     // Get service from URL path or provided location
-    const currentLocation = location || L.location();
+    const currentLocation = location ?? L.location();
     const pathParts = currentLocation.split("/");
-    const lastPart = pathParts[pathParts.length - 1] || "unknown";
+    const lastPart = pathParts[pathParts.length - 1] ?? "unknown";
     const service = lastPart.charAt(0).toUpperCase() + lastPart.slice(1);
 
     const date = new Date().toLocaleDateString(undefined, {
@@ -222,27 +228,29 @@ class DroidNet {
     });
     const notif = `${date}, ${time} - ${service}: ${message}\n`;
 
-    fs.exec("/usr/share/droidnet/helper", ["log", notif, logFile]);
+    void fs.exec("/usr/share/droidnet/helper", ["log", notif, logFile]);
   }
 
   async serviceStatus(): Promise<boolean> {
-    return (await this.__callRCList("droidnet"))?.droidnet?.running || false;
+    const result = await this.__callRCList("droidnet");
+    return result?.droidnet?.running ?? false;
   }
 
-  serviceReload(): Promise<any> {
+  serviceReload(): Promise<Record<string, unknown>> {
     return this.__callRCInit("droidnet", "reload");
   }
 
-  serviceRestart(): Promise<any> {
+  serviceRestart(): Promise<Record<string, unknown>> {
     return this.__callRCInit("droidnet", "restart");
   }
 
-  serviceStop(): Promise<any> {
+  serviceStop(): Promise<Record<string, unknown>> {
     return this.__callRCInit("droidnet", "stop");
   }
 }
 
-type DroidNetType = DroidNet;
+type _DroidNetType = DroidNet;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 declare const droidnet: ReturnType<() => DroidNet>;
 
 const instance = new DroidNet();
@@ -251,18 +259,22 @@ const methods = Object.getOwnPropertyNames(proto)
   .filter(
     (name): name is keyof DroidNet =>
       name !== "constructor" &&
-      typeof (instance as any)[name] === "function" &&
+      typeof (instance as unknown as Record<string, unknown>)[name] ===
+        "function" &&
       !name.startsWith("_"),
   )
   .reduce(
     (obj, name) => {
-      obj[name] = (instance[name] as Function).bind(instance);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      obj[name] = (instance[name] as (...args: unknown[]) => unknown).bind(
+        instance,
+      );
       return obj;
     },
-    {} as Record<keyof DroidNet, any>,
+    {} as Record<keyof DroidNet, unknown>,
   );
 
-// @ts-ignore
+// @ts-expect-error - baseclass.extend is not properly typed
 return baseclass.extend({
   ...instance,
   ...methods,

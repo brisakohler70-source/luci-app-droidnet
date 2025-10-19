@@ -171,7 +171,7 @@ const UIRenderer = baseclass.extend({
     return E("h3", { class: "section-title" }, _(title));
   },
 
-  renderTab: function (tabs: (UITabConfig | null)[] = []): HTMLElement {
+  renderTab: function (tabs: Array<UITabConfig | null> = []): HTMLElement {
     const filteredTabs = tabs.filter(
       (item): item is UITabConfig => item !== null && item !== undefined,
     );
@@ -201,12 +201,14 @@ const UIRenderer = baseclass.extend({
                     const contentElement = document.getElementById(
                       currentTab.tabId,
                     );
-                    if (tabElement)
+                    if (tabElement) {
                       tabElement.className =
                         i === index ? "cbi-tab" : "cbi-tab-disabled";
-                    if (contentElement)
+                    }
+                    if (contentElement) {
                       contentElement.style.display =
                         i === index ? "contents" : "none";
+                    }
                   });
                 },
               },
@@ -232,7 +234,7 @@ const UIRenderer = baseclass.extend({
   },
 
   renderPage: function (
-    sections: (HTMLElement[] | null)[],
+    sections: Array<HTMLElement[] | null>,
     header?: HTMLElement,
   ): HTMLElement {
     const defaultHeader = header || this.header;
@@ -348,16 +350,15 @@ const UIRenderer = baseclass.extend({
         },
         _("OK"),
       );
-    } else {
-      return E(
-        "button",
-        {
-          class: "btn",
-          click: ui.hideModal,
-        },
-        _("Cancel"),
-      );
     }
+    return E(
+      "button",
+      {
+        class: "btn",
+        click: ui.hideModal,
+      },
+      _("Cancel"),
+    );
   },
 
   selectDeviceForm: function (): HTMLElement {
@@ -397,7 +398,7 @@ const UIRenderer = baseclass.extend({
       onSave: async (deviceId: string) => {
         // Access global uci directly
         uci.set("droidnet", "device", "id", deviceId);
-        uci.save();
+        void uci.save();
         window.location.reload();
       },
       onReload: async () => {
@@ -456,9 +457,9 @@ const UIRenderer = baseclass.extend({
         setTimeout(() => {
           const saveBtn = document.querySelector(
             'input[value="Save Setting"]',
-          ) as HTMLInputElement;
+          )!;
           if (saveBtn) {
-            saveBtn.disabled = isUnauthorized;
+            (saveBtn as HTMLButtonElement).disabled = isUnauthorized;
           }
         }, 0);
 
@@ -512,8 +513,12 @@ const UIRenderer = baseclass.extend({
     o.cfgvalue = function () {
       return null;
     };
-    o.write = function () {};
-    o.remove = function () {};
+    o.write = function () {
+      /* intentionally empty */
+    };
+    o.remove = function () {
+      /* intentionally empty */
+    };
     o.renderWidget = function () {
       const buttonStyle = this.inputstyle || "neutral";
       const attrs: Record<string, any> = {
@@ -600,5 +605,5 @@ const UIRenderer = baseclass.extend({
   },
 });
 
-// @ts-ignore
+// @ts-expect-error - baseclass.extend typing is not available
 return UIRenderer;

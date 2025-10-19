@@ -72,7 +72,7 @@ function loadFilterSettings(): any {
   return settings;
 }
 
-function applyFilterSettings(settings: any): void {
+function _applyFilterSettings(settings: any): void {
   const readFilter = document.getElementById(
     "read-filter",
   ) as HTMLSelectElement;
@@ -529,9 +529,9 @@ function renderMessageTable(
 }
 
 function updateMessageTable(messages: InboxMessage[], display: number): void {
-  const container = document.querySelector(".table-container") as HTMLElement;
-  const prev = document.querySelector(".prev") as HTMLButtonElement;
-  const next = document.querySelector(".next") as HTMLButtonElement;
+  const container = document.querySelector(".table-container")!;
+  const prev = document.querySelector(".prev")!;
+  const next = document.querySelector(".next")!;
 
   if (container) {
     container.innerHTML = "";
@@ -543,17 +543,17 @@ function updateMessageTable(messages: InboxMessage[], display: number): void {
   const pages = Math.ceil(total / display);
 
   if (pages <= 1) {
-    if (prev) prev.disabled = true;
-    if (next) next.disabled = true;
+    if (prev) (prev as HTMLButtonElement).disabled = true;
+    if (next) (next as HTMLButtonElement).disabled = true;
   } else if (inboxCurrentPage <= 1) {
-    if (prev) prev.disabled = true;
-    if (next) next.disabled = false;
+    if (prev) (prev as HTMLButtonElement).disabled = true;
+    if (next) (next as HTMLButtonElement).disabled = false;
   } else if (inboxCurrentPage >= pages) {
-    if (prev) prev.disabled = false;
-    if (next) next.disabled = true;
+    if (prev) (prev as HTMLButtonElement).disabled = false;
+    if (next) (next as HTMLButtonElement).disabled = true;
   } else {
-    if (prev) prev.disabled = false;
-    if (next) next.disabled = false;
+    if (prev) (prev as HTMLButtonElement).disabled = false;
+    if (next) (next as HTMLButtonElement).disabled = false;
   }
 
   const start = (inboxCurrentPage - 1) * display + 1;
@@ -792,7 +792,7 @@ function applyFilters(messages: InboxMessage[], newDisplay: number): void {
   updateMessageTable(filtered, newDisplay);
 }
 
-// @ts-ignore
+// @ts-expect-error - view.extend typing is not available
 return view.extend({
   handleSaveApply: null,
   handleSave: null,
